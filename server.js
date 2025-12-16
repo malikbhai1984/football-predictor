@@ -1,20 +1,18 @@
 
 
 
-// server.js - API KEY + V3 STRUCTURE FIXED
 import express from 'express';
 import fetch from 'node-fetch';
 import { CONFIG, MATCHES, PREDICTIONS } from './config.js';
-import { realPredict, extractStatistics, getFlag, formatPKT } from './core.js';
+import { realPredict, extractStatistics, getLeagueFactor, getFlag, formatPKT } from './core.js';
 
 const app = express();
 app.use(express.static('.'));
 app.use(express.json());
 
-// ✅ YOUR API KEY - DIRECTLY HERE (SECURE for localhost)
-const API_KEY = '62207494b8a241db93aee4c14b7c1266';  // ← WORKING KEY
+const API_KEY = '62207494b8a241db93aee4c14b7c1266';
 
-// API ENDPOINTS
+// ✅ ALL 4 ENDPOINTS
 app.get('/api/matches', async (req, res) => {
   await fetchLiveMatches();
   res.json({ 
@@ -22,6 +20,16 @@ app.get('/api/matches', async (req, res) => {
     predictions: PREDICTIONS, 
     stats: getStats() 
   });
+});
+
+app.get('/api/tomorrow', async (req, res) => {
+  await fetchTomorrowMatches();
+  res.json({ matches: MATCHES, stats: getStats() });
+});
+
+app.get('/api/future', async (req, res) => {
+  await fetchFutureMatches();
+  res.json({ matches: MATCHES, stats: getStats() });
 });
 
 app.get('/api/refresh', async (req, res) => {
@@ -36,7 +44,6 @@ async function fetchLiveMatches() {
     
     const today = new Date().toISOString().split('T')[0];
     
-    // LIVE MATCHES
     const liveResponse = await fetch('https://v3.football.api-sports.io/fixtures?live=all', {
       headers: { 
         'x-rapidapi-key': API_KEY,
@@ -46,7 +53,6 @@ async function fetchLiveMatches() {
     const liveData = await liveResponse.json();
     processMatches(liveData.response || [], 'LIVE');
     
-    // TODAY MATCHES
     const todayResponse = await fetch(`https://v3.football.api-sports.io/fixtures?date=${today}`, {
       headers: { 
         'x-rapidapi-key': API_KEY,
@@ -56,7 +62,6 @@ async function fetchLiveMatches() {
     const todayData = await todayResponse.json();
     processMatches(todayData.response || [], 'SCHEDULED');
     
-    // GENERATE PREDICTIONS
     MATCHES.forEach(match => {
       const pred = realPredict(match);
       if (pred) PREDICTIONS.push(pred);
@@ -65,6 +70,70 @@ async function fetchLiveMatches() {
     console.log(`✅ LIVE: ${getStats().liveMatches} | Predictions: ${PREDICTIONS.length}`);
   } catch (error) {
     console.error('API Error:', error.message);
+  }
+}
+
+async function fetchTomorrowMatches() {
+  try {
+    MATCHES.length = 0;
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const dateStr = tomorrow.toISOString().split('T')[0];
+    
+    const response = await fetch(`https://v3.football.api-sports.io/fixtures?date=${dateStr}`, {
+      headers: { 
+        'x-rapidapi-key': API_KEY,
+        'x-rapidapi-host': 'v3.football.api-sports.io' 
+      }
+    });
+    const data = await response.json();
+    processMatches(data.response || [], 'SCHEDULED');
+  } catch (error) {
+    console.error('Tomorrow API Error:', error.message);
+  }
+}
+
+async function fetchFutureMatches() {
+  try {
+    MATCHES.length = 0;
+    const today = new Date();
+    
+    for (let i = 1; i <= 5; i++) {
+      const futureDate = new Date(today);
+      futureDate.setDate(today.getDate() + i);
+      const dateStr = futureDate.toISOString().split('T')[0];
+      
+      try {
+        const response = await fetch(`https://v3.football.api-sports.io/fixtures?date=${dateStr}`, {
+          headers: { 
+            'x-rapidapi-key': API_KEY,
+            'x-rapidapi-host': 'v3.football.api-sports.io' 
+          }
+        });
+        const data = await response.json();
+        
+        data.response.forEach(match => {
+          const fixture = match.fixture;
+          const teams = match.teams;
+          const league = match.league;
+          
+          MATCHES.push({
+            match_id: fixture.id,
+            league: `${getFlag(league.country)} ${league.name}`,
+            league_name: league.name.replace(/[^A-Za-z ]/g, '').trim(),
+            home_team: teams.home.name,
+            away_team: teams.away.name,
+            date: dateStr,
+            time: formatPKT(fixture.date),
+            status: 'SCHEDULED'
+          });
+        });
+      } catch(e) {
+        console.log(`Future date ${dateStr} failed`);
+      }
+    }
+  } catch (error) {
+    console.error('Future API Error:', error.message);
   }
 }
 
@@ -89,7 +158,7 @@ function processMatches(apiMatches, defaultStatus) {
       away_score: match.goals?.away ?? null,
       minute: fixture.status.elapsed || 0,
       time: formatPKT(fixture.date),
-      statistics: extractStatistics(match)  // ✅ FIXED V3 STRUCTURE
+      statistics: extractStatistics(match)
     });
   });
 }
@@ -106,13 +175,8 @@ function getStats() {
 setInterval(fetchLiveMatches, 90000);
 fetchLiveMatches();
 
-
-
-
 const PORT = process.env.PORT || 8080;
 app.listen(PORT, '0.0.0.0', () => {
-  console.log(`🚀 LIVE on port ${PORT}`);
+  console.log(`🚀 LIVE Football Predictor on port ${PORT}`);
+  console.log(`✅ All tabs working: Today | Tomorrow | Next 5 Days | LIVE`);
 });
-
-
-
