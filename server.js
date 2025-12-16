@@ -12,7 +12,7 @@ app.use(express.json());
 
 const API_KEY = '62207494b8a241db93aee4c14b7c1266';
 
-// Graceful shutdown handlers
+// Graceful shutdown
 process.on('SIGTERM', () => {
   console.log('🛑 SIGTERM received, shutting down gracefully');
   process.exit(0);
@@ -23,7 +23,7 @@ process.on('SIGINT', () => {
   process.exit(0);
 });
 
-// ✅ ENDPOINT 1: Today + LIVE Matches
+// ✅ ALL 4 ENDPOINTS
 app.get('/api/matches', async (req, res) => {
   try {
     await fetchLiveMatches();
@@ -33,55 +33,38 @@ app.get('/api/matches', async (req, res) => {
       stats: getStats() 
     });
   } catch(e) {
-    console.error('Matches API Error:', e.message);
-    res.json({ matches: [], predictions: [], stats: { totalMatches: 0, liveMatches: 0, predictions: 0, highConfidence: 0 } });
+    res.json({ matches: [], predictions: [], stats: { totalMatches: 0 } });
   }
 });
 
-// ✅ ENDPOINT 2: Tomorrow Matches
 app.get('/api/tomorrow', async (req, res) => {
   try {
     await fetchTomorrowMatches();
-    res.json({ 
-      matches: MATCHES, 
-      stats: getStats() 
-    });
+    res.json({ matches: MATCHES, stats: getStats() });
   } catch(e) {
-    console.error('Tomorrow API Error:', e.message);
     res.json({ matches: [], stats: { totalMatches: 0 } });
   }
 });
 
-// ✅ ENDPOINT 3: Next 5 Days Matches
 app.get('/api/future', async (req, res) => {
   try {
     await fetchFutureMatches();
-    res.json({ 
-      matches: MATCHES, 
-      stats: getStats() 
-    });
+    res.json({ matches: MATCHES, stats: getStats() });
   } catch(e) {
-    console.error('Future API Error:', e.message);
     res.json({ matches: [], stats: { totalMatches: 0 } });
   }
 });
 
-// ✅ ENDPOINT 4: Manual Refresh
 app.get('/api/refresh', async (req, res) => {
   try {
     await fetchLiveMatches();
-    res.json({ 
-      success: true, 
-      count: PREDICTIONS.length,
-      stats: getStats()
-    });
+    res.json({ success: true, count: PREDICTIONS.length });
   } catch(e) {
-    console.error('Refresh API Error:', e.message);
     res.json({ success: false });
   }
 });
 
-// ✅ FUNCTION 1: LIVE + Today Matches
+// ✅ FIXED: LIVE + Today Matches
 async function fetchLiveMatches() {
   try {
     MATCHES.length = 0;
@@ -117,14 +100,13 @@ async function fetchLiveMatches() {
       if (pred) PREDICTIONS.push(pred);
     });
     
-    const stats = getStats();
-    console.log(`✅ LIVE: ${stats.liveMatches} | Predictions: ${PREDICTIONS.length} | Total: ${stats.totalMatches}`);
+    console.log(`✅ LIVE: ${getStats().liveMatches} | Predictions: ${PREDICTIONS.length}`);
   } catch (error) {
     console.error('fetchLiveMatches Error:', error.message);
   }
 }
 
-// ✅ FUNCTION 2: Tomorrow Matches
+// ✅ FIXED: Tomorrow Matches (TOP LEAGUES)
 async function fetchTomorrowMatches() {
   try {
     MATCHES.length = 0;
@@ -132,29 +114,35 @@ async function fetchTomorrowMatches() {
     tomorrow.setDate(tomorrow.getDate() + 1);
     const dateStr = tomorrow.toISOString().split('T')[0];
     
-    console.log(`📅 Fetching tomorrow (${dateStr}) matches...`);
-    const response = await fetch(`https://v3.football.api-sports.io/fixtures?date=${dateStr}`, {
+    const leagueIds = '39,140,78,135,61'; // EPL,LaLiga,Bundesliga,SerieA,Ligue1
+    const url = `https://v3.football.api-sports.io/fixtures?date=${dateStr}&league=${leagueIds}&timezone=Asia/Karachi`;
+    
+    console.log(`📅 Fetching tomorrow (${dateStr})...`);
+    const response = await fetch(url, {
       headers: { 
         'x-rapidapi-key': API_KEY,
         'x-rapidapi-host': 'v3.football.api-sports.io' 
       }
     });
-    const data = await response.json();
-    processMatches(data.response || [], 'SCHEDULED');
     
+    const data = await response.json();
+    console.log(`Tomorrow API: ${data.response?.length || 0} matches`);
+    
+    processMatches(data.response || [], 'SCHEDULED');
     console.log(`✅ Tomorrow: ${MATCHES.length} matches loaded`);
   } catch (error) {
     console.error('fetchTomorrowMatches Error:', error.message);
   }
 }
 
-// ✅ FUNCTION 3: Next 5 Days Matches
+// ✅ FIXED: Next 5 Days (TOP LEAGUES ONLY)
 async function fetchFutureMatches() {
   try {
     MATCHES.length = 0;
     const today = new Date();
+    const leagueIds = '39,140,78,135,61'; // EPL,LaLiga,Bundesliga,SerieA,Ligue1
     
-    console.log('📅 Fetching next 5 days matches...');
+    console.log('📅 Fetching next 5 days matches (Top Leagues)...');
     
     for (let i = 1; i <= 5; i++) {
       const futureDate = new Date(today);
@@ -163,14 +151,23 @@ async function fetchFutureMatches() {
       
       console.log(`📆 Day ${i}: ${dateStr}`);
       
+      const url = `https://v3.football.api-sports.io/fixtures?date=${dateStr}&league=${leagueIds}&timezone=Asia/Karachi`;
+      
       try {
-        const response = await fetch(`https://v3.football.api-sports.io/fixtures?date=${dateStr}`, {
+        const response = await fetch(url, {
           headers: { 
             'x-rapidapi-key': API_KEY,
             'x-rapidapi-host': 'v3.football.api-sports.io' 
           }
         });
+        
         const data = await response.json();
+        console.log(`API ${dateStr}: ${data.response?.length || 0} matches`);
+        
+        if (!data.response || data.response.length === 0) {
+          console.log(`⚠️ No matches on ${dateStr}`);
+          continue;
+        }
         
         data.response.forEach(match => {
           const fixture = match.fixture;
@@ -190,23 +187,24 @@ async function fetchFutureMatches() {
             status: 'SCHEDULED'
           });
         });
+        
+        console.log(`✅ ${dateStr}: ${data.response.length} matches added`);
+        
       } catch(e) {
-        console.log(`❌ Future date ${dateStr} failed:`, e.message);
+        console.log(`❌ ${dateStr} failed:`, e.message);
       }
     }
     
-    console.log(`✅ Next 5 days: ${MATCHES.length} matches loaded`);
+    console.log(`✅ TOTAL Next 5 days: ${MATCHES.length} matches loaded`);
   } catch (error) {
     console.error('fetchFutureMatches Error:', error.message);
   }
 }
 
-// ✅ FUNCTION 4: Process API Matches
 function processMatches(apiMatches, defaultStatus) {
   apiMatches.forEach(match => {
     const fixture = match.fixture;
     
-    // Skip duplicates
     if (MATCHES.some(m => m.match_id === fixture.id)) return;
     
     const teams = match.teams;
@@ -229,29 +227,21 @@ function processMatches(apiMatches, defaultStatus) {
   });
 }
 
-// ✅ FUNCTION 5: Get Stats
 function getStats() {
-  const liveCount = MATCHES.filter(m => ['1H','2H','HT','ET','LIVE'].includes(m.status)).length;
-  const highConf = PREDICTIONS.filter(p => p.confidence >= 80).length;
-  
   return {
     totalMatches: MATCHES.length,
-    liveMatches: liveCount,
+    liveMatches: MATCHES.filter(m => ['1H','2H','HT','ET','LIVE'].includes(m.status)).length,
     predictions: PREDICTIONS.length,
-    highConfidence: highConf
+    highConfidence: PREDICTIONS.filter(p => p.confidence >= 80).length
   };
 }
 
-// ✅ START SERVER
+// START SERVER
 const PORT = process.env.PORT || 8080;
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 LIVE Football Predictor on port ${PORT}`);
-  console.log(`✅ All tabs working: Today | Tomorrow | Next 5 Days | LIVE`);
-  console.log(`✅ Auto-refresh every 90 seconds`);
+  console.log(`✅ All 4 tabs: Today | Tomorrow | Next 5 Days | LIVE`);
 });
 
-// ✅ AUTO-REFRESH
 setInterval(fetchLiveMatches, 90000);
 fetchLiveMatches();
-
-console.log('⚽ Server fully loaded & ready!');
