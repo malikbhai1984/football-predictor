@@ -1,8 +1,3 @@
-
-
-
-// core.js - FINAL OPTIMIZED VERSION (ALL FLAWS FIXED)
-
 export function extractStatistics(apiMatch) {
   const stats = apiMatch.statistics || [[], []];
   const result = { 
@@ -34,7 +29,6 @@ export function extractStatistics(apiMatch) {
     });
   });
   
-  // ✅ FIXED: Conservative fallback (1.2x not 1.5x)
   return {
     shots_on_goal: Math.max(0, result.shots_on_goal),
     shots_inside_box: Math.max(0, result.shots_inside_box || result.shots_on_goal * 1.2),
@@ -44,13 +38,12 @@ export function extractStatistics(apiMatch) {
 }
 
 export function getLeagueFactor(league) {
-  // ✅ FIXED: Statistically balanced factors (based on avg goals/league)
   const factors = {
-    'Premier League': 4, 'EPL': 4, 'PL': 4,      // 2.9 goals/match
-    'Bundesliga': 6, 'BL1': 6,                     // 3.1 goals/match  
-    'Serie A': 1, 'SERIE_A': 1,                    // 2.6 goals/match
-    'Ligue 1': 2, 'FL1': 2,                        // 2.7 goals/match
-    'La Liga': 3, 'Primera Division': 3            // 2.8 goals/match
+    'Premier League': 4, 'EPL': 4, 'PL': 4,
+    'Bundesliga': 6, 'BL1': 6,                     
+    'Serie A': 1, 'SERIE_A': 1,                    
+    'Ligue 1': 2, 'FL1': 2,                        
+    'La Liga': 3, 'Primera Division': 3            
   };
   return factors[league] || 0;
 }
@@ -70,7 +63,6 @@ export function realPredict(match) {
   const shotsInsideBox = Math.max(0, stats.shots_inside_box || 0);
   const redCards = Math.max(0, stats.red_cards || 0);
   
-  // ✅ OPTIMIZED INTENSITY (defensive red cards penalty)
   const intensityRaw = (shotsOnGoal * 6) + (corners * 2.5) + (shotsInsideBox * 4);
   const intensity = minute < 20
     ? Math.min(40, Math.sqrt(intensityRaw) * 4)
@@ -98,9 +90,7 @@ export function realPredict(match) {
 
   const over_25 = calculateOverProbability(totalGoals, minute, intensity, redCards, leagueFactor, drawPressure);
   const over_35 = Math.max(5, Math.min(92, 45 + (totalGoals * 3) - (minute * 0.5) + xgProxy * 20));
-  const over_45 = Math.max(5, Math.min(92, 30 + (totalGoals * 2.5) - (minute * 0.6)));
-  const over_55 = Math.max(5, Math.min(92, 20 + (totalGoals * 2) - (minute * 0.7)));
-
+  
   return {
     match_id: match.match_id,
     home_team: match.home_team || 'Unknown',
@@ -113,19 +103,14 @@ export function realPredict(match) {
     xg_proxy: Math.round(xgProxy * 100) / 100,
     draw_pressure: drawPressure,
     league_factor: leagueFactor,
-    
-    over_05, over_15, over_25, over_35, over_45, over_55,
-    
+    over_05, over_15, over_25, over_35,
     btts: (homeScore > 0 && awayScore > 0) ? 85 :
           (minute > 75 && totalGoals === 1) ? 45 :
           totalGoals >= 1 ? Math.min(78, 58 + intensity * 0.15) : 35,
-    
-    // ✅ FIXED: Intensity factor added to next_goal
     next_goal: minute > 85 && homeScore === awayScore
       ? Math.min(82, 60 + intensity * 0.25)
       : minute > 80 ? Math.min(75, 55 + intensity * 0.15)
       : minute < 75 ? Math.min(92, 70 + (90-minute) * 0.3 + intensity * 0.1) : 50,
-    
     confidence: calculateRealConfidence(totalGoals, minute, intensity, leagueFactor, drawPressure)
   };
 }
@@ -146,13 +131,13 @@ export function calculateOverProbability(totalGoals, minute, intensity, redCards
   if (minute > 80 && totalGoals === 1) prob -= 25;
   if (minute > 55 && totalGoals === 0) prob = Math.min(prob, 35);
   if (minute > 80 && totalGoals === 2) prob = Math.min(prob, 70);
-  if (redCards > 0 && totalGoals < 3) prob += 5;  // ✅ Reduced red card boost
+  if (redCards > 0 && totalGoals < 3) prob += 5;
   
   return Math.max(5, Math.min(92, prob));
 }
 
 export function calculateRealConfidence(totalGoals, minute, intensity, leagueFactor, drawPressure) {
-  let conf = 60 + Math.abs(leagueFactor * 0.5) + (drawPressure * 0.5);  // ✅ Balanced league factor
+  let conf = 60 + Math.abs(leagueFactor * 0.5) + (drawPressure * 0.5);
   
   if (totalGoals >= 2) conf += 15;
   conf += minute * 0.25;
