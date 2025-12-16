@@ -13,11 +13,11 @@ app.use(express.json());
 // API KEY
 const API_KEY = '62207494b8a241db93aee4c14b7c1266';
 
-// ENDPOINTS
+// ================= API =================
 app.get('/api/matches', async (req, res) => {
   await fetchLiveMatches();
   res.json({
-    matches: MATCHES,
+    matches_by_date: groupMatchesByDate(MATCHES),
     predictions: PREDICTIONS,
     stats: getStats()
   });
@@ -28,6 +28,7 @@ app.get('/api/refresh', async (req, res) => {
   res.json({ success: true, count: PREDICTIONS.length });
 });
 
+// ================= FETCH =================
 async function fetchLiveMatches() {
   try {
     MATCHES.length = 0;
@@ -53,14 +54,17 @@ async function fetchLiveMatches() {
     const liveData = await liveRes.json();
     processMatches(liveData.response || [], 'LIVE');
 
-    // TODAY + NEXT 6 DAYS
+    // SCHEDULED (TODAY + NEXT 6 DAYS)
     for (const date of dates) {
-      const res = await fetch(`https://v3.football.api-sports.io/fixtures?date=${date}`, {
-        headers: {
-          'x-rapidapi-key': API_KEY,
-          'x-rapidapi-host': 'v3.football.api-sports.io'
+      const res = await fetch(
+        `https://v3.football.api-sports.io/fixtures?date=${date}`,
+        {
+          headers: {
+            'x-rapidapi-key': API_KEY,
+            'x-rapidapi-host': 'v3.football.api-sports.io'
+          }
         }
-      });
+      );
       const data = await res.json();
       processMatches(data.response || [], 'SCHEDULED');
     }
@@ -77,6 +81,7 @@ async function fetchLiveMatches() {
   }
 }
 
+// ================= PROCESS =================
 function processMatches(apiMatches, defaultStatus) {
   apiMatches.forEach(m => {
     const f = m.fixture;
@@ -96,21 +101,34 @@ function processMatches(apiMatches, defaultStatus) {
       away_score: m.goals?.away ?? 0,
       minute: f.status.elapsed || 0,
       time: formatPKT(f.date),
+      time_date: f.date.split('T')[0],   // YYYY-MM-DD
       statistics: extractStatistics(m)
     });
   });
 }
 
+// ================= HELPERS =================
+function groupMatchesByDate(matches) {
+  return matches.reduce((acc, m) => {
+    const d = m.time_date;
+    if (!acc[d]) acc[d] = [];
+    acc[d].push(m);
+    return acc;
+  }, {});
+}
+
 function getStats() {
   return {
     totalMatches: MATCHES.length,
-    liveMatches: MATCHES.filter(m => ['1H','2H','HT','ET','LIVE'].includes(m.status)).length,
+    liveMatches: MATCHES.filter(m =>
+      ['1H','2H','HT','ET','LIVE','P'].includes(m.status)
+    ).length,
     predictions: PREDICTIONS.length,
     highConfidence: PREDICTIONS.filter(p => p.confidence >= 80).length
   };
 }
 
-// RATE-LIMIT SAFE
+// ================= RUN =================
 setInterval(fetchLiveMatches, 90000);
 fetchLiveMatches();
 
