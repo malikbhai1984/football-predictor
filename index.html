@@ -2,6 +2,9 @@
 
 
 
+
+
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -374,65 +377,5 @@
       else if (currentTab === 'today') loadToday();
     }, 90000); // Match server refresh
   </script>
-</body>
-</html>!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<title>Next 6 Days Football Schedule</title>
-<style>
-  body { font-family: Arial, sans-serif; padding: 20px; }
-  table { border-collapse: collapse; width: 100%; margin-top: 20px; }
-  th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
-  th { background-color: #f4f4f4; }
-</style>
-</head>
-<body>
-<h1>Next 6 Days Football Schedule</h1>
-<table id="matchesTable">
-  <thead>
-    <tr>
-      <th>Date/Time (PKT)</th>
-      <th>League</th>
-      <th>Home Team</th>
-      <th>Away Team</th>
-      <th>Status</th>
-      <th>Score</th>
-    </tr>
-  </thead>
-  <tbody></tbody>
-</table>
-
-<script>
-async function fetchMatches() {
-  try {
-    const res = await fetch('/api/matches');
-    const data = await res.json();
-    const tbody = document.querySelector('#matchesTable tbody');
-    tbody.innerHTML = '';
-
-    data.matches.forEach(match => {
-      const row = document.createElement('tr');
-      row.innerHTML = `
-        <td>${match.time}</td>
-        <td>${match.league}</td>
-        <td>${match.home_team}</td>
-        <td>${match.away_team}</td>
-        <td>${match.status}</td>
-        <td>${match.score || '-'}</td>
-      `;
-      tbody.appendChild(row);
-    });
-  } catch (err) {
-    console.error('Error fetching matches:', err);
-  }
-}
-
-// Initial fetch
-fetchMatches();
-
-// Auto-refresh every 90 seconds
-setInterval(fetchMatches, 90000);
-</script>
 </body>
 </html>
