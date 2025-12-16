@@ -107,8 +107,13 @@ function getStats() {
 setInterval(fetchLiveMatches, 90000);
 fetchLiveMatches();
 
-app.listen(8080, () => {
-  console.log('\n🚀 LIVE FOOTBALL PREDICTOR v2.0 - 100% FIXED');
-  console.log('🚀 http://localhost:8080');
-  console.log('========================================\n');
+
+
+
+const PORT = process.env.PORT || 8080;
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`🚀 LIVE on port ${PORT}`);
 });
+
+
+
