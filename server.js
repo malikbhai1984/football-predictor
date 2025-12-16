@@ -1,7 +1,10 @@
 
 
-// server.js - NEXT 6 DAYS MATCHES + SAFE FETCH
 
+
+
+
+// server.js - API KEY + V3 STRUCTURE FIXED
 import express from 'express';
 import fetch from 'node-fetch';
 import { CONFIG, MATCHES, PREDICTIONS } from './config.js';
@@ -11,78 +14,73 @@ const app = express();
 app.use(express.static('.'));
 app.use(express.json());
 
-// ✅ YOUR API KEY
-const API_KEY = 'YOUR_RAPIDAPI_KEY_HERE';  // ← Replace with your valid key
+// ✅ YOUR API KEY - DIRECTLY HERE (SECURE for localhost)
+const API_KEY = '62207494b8a241db93aee4c14b7c1266';  // ← WORKING KEY
 
 // API ENDPOINTS
 app.get('/api/matches', async (req, res) => {
-  await fetchMatchesNext6Days();
-  res.json({ matches: MATCHES, predictions: PREDICTIONS });
+  await fetchLiveMatches();
+  res.json({ 
+    matches: MATCHES, 
+    predictions: PREDICTIONS, 
+    stats: getStats() 
+  });
 });
 
 app.get('/api/refresh', async (req, res) => {
-  await fetchMatchesNext6Days();
+  await fetchLiveMatches();
   res.json({ success: true, count: PREDICTIONS.length });
 });
 
-// 🔹 Fetch next 6 days matches safely
-async function fetchMatchesNext6Days() {
+async function fetchLiveMatches() {
   try {
     MATCHES.length = 0;
     PREDICTIONS.length = 0;
-    const today = new Date();
-
-    for (let i = 0; i < 6; i++) {
-      const date = new Date(today);
-      date.setDate(today.getDate() + i);
-      const strDate = date.toISOString().split('T')[0];
-
-      try {
-        const response = await fetch(`https://v3.football.api-sports.io/fixtures?date=${strDate}`, {
-          headers: {
-            'x-rapidapi-key': API_KEY,
-            'x-rapidapi-host': 'v3.football.api-sports.io'
-          }
-        });
-
-        if (!response.ok) {
-          console.error(`API fetch failed for ${strDate}:`, response.status, await response.text());
-          continue;
-        }
-
-        const data = await response.json();
-        console.log(`Fetched ${data.response.length} matches for ${strDate}`);
-
-        processMatches(data.response || [], 'SCHEDULED');
-
-      } catch (innerErr) {
-        console.error('Inner fetch error:', innerErr);
+    
+    const today = new Date().toISOString().split('T')[0];
+    
+    // LIVE MATCHES
+    const liveResponse = await fetch('https://v3.football.api-sports.io/fixtures?live=all', {
+      headers: { 
+        'x-rapidapi-key': API_KEY,
+        'x-rapidapi-host': 'v3.football.api-sports.io' 
       }
-    }
-
-    // Generate predictions for LIVE matches only
+    });
+    const liveData = await liveResponse.json();
+    processMatches(liveData.response || [], 'LIVE');
+    
+    // TODAY MATCHES
+    const todayResponse = await fetch(`https://v3.football.api-sports.io/fixtures?date=${today}`, {
+      headers: { 
+        'x-rapidapi-key': API_KEY,
+        'x-rapidapi-host': 'v3.football.api-sports.io' 
+      }
+    });
+    const todayData = await todayResponse.json();
+    processMatches(todayData.response || [], 'SCHEDULED');
+    
+    // GENERATE PREDICTIONS
     MATCHES.forEach(match => {
       const pred = realPredict(match);
       if (pred) PREDICTIONS.push(pred);
     });
-
-    console.log(`Total matches: ${MATCHES.length} | Predictions: ${PREDICTIONS.length}`);
-
-  } catch (err) {
-    console.error('Error fetching next 6 days matches:', err);
+    
+    console.log(`✅ LIVE: ${getStats().liveMatches} | Predictions: ${PREDICTIONS.length}`);
+  } catch (error) {
+    console.error('API Error:', error.message);
   }
 }
 
-// 🔹 Process API matches
 function processMatches(apiMatches, defaultStatus) {
   apiMatches.forEach(match => {
     const fixture = match.fixture;
+    
     if (MATCHES.some(m => m.match_id === fixture.id)) return;
-
+    
     const teams = match.teams;
     const league = match.league;
     const cleanLeagueName = league.name.replace(/[^A-Za-z ]/g, '').trim();
-
+    
     MATCHES.push({
       match_id: fixture.id,
       league: `${getFlag(league.country)} ${league.name}`,
@@ -94,15 +92,28 @@ function processMatches(apiMatches, defaultStatus) {
       away_score: match.goals?.away ?? null,
       minute: fixture.status.elapsed || 0,
       time: formatPKT(fixture.date),
-      statistics: extractStatistics(match)
+      statistics: extractStatistics(match)  // ✅ FIXED V3 STRUCTURE
     });
   });
 }
 
+function getStats() {
+  return {
+    totalMatches: MATCHES.length,
+    liveMatches: MATCHES.filter(m => ['1H','2H','HT','ET','LIVE'].includes(m.status)).length,
+    predictions: PREDICTIONS.length,
+    highConfidence: PREDICTIONS.filter(p => p.confidence >= 80).length
+  };
+}
+
+setInterval(fetchLiveMatches, 90000);
+fetchLiveMatches();
+
+
+
+
 const PORT = process.env.PORT || 8080;
 app.listen(PORT, '0.0.0.0', () => {
-  console.log(`🚀 Server running on port ${PORT}`);
+  console.log(`🚀 LIVE on port ${PORT}`);
 });
 
-// 🔹 Auto-refresh every 90 seconds
-setInterval(fetchMatchesNext6Days, 90000);
