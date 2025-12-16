@@ -1,0 +1,378 @@
+
+
+
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>⚽ LIVE Football Predictor Pro v2.0</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { 
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+      background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+      color: white; 
+      min-height: 100vh;
+      padding: 20px;
+    }
+    .container { max-width: 1400px; margin: 0 auto; }
+    
+    .header { 
+      text-align: center; 
+      margin-bottom: 30px; 
+      padding: 25px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 20px;
+      backdrop-filter: blur(10px);
+    }
+    .header h1 { font-size: 2.8em; margin-bottom: 10px; }
+    
+    .tab-buttons {
+      display: flex;
+      justify-content: center;
+      gap: 15px;
+      margin: 25px 0;
+      flex-wrap: wrap;
+    }
+    .tab-btn {
+      padding: 15px 30px;
+      border: none;
+      border-radius: 30px;
+      font-weight: bold;
+      font-size: 1.1em;
+      cursor: pointer;
+      transition: all 0.3s;
+      min-width: 180px;
+    }
+    .tab-btn.today { background: #00d4aa; }
+    .tab-btn.today.active { background: #00b894; transform: translateY(-3px); }
+    .tab-btn.tomorrow { background: #ffa502; }
+    .tab-btn.tomorrow.active { background: #ff6348; transform: translateY(-3px); }
+    .tab-btn.live { background: #ff4757; }
+    .tab-btn.live.active { background: #ff3742; transform: translateY(-3px); }
+    
+    .stats-grid { 
+      display: grid; 
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); 
+      gap: 15px; 
+      margin: 25px 0;
+    }
+    .stat-card { 
+      background: rgba(255,255,255,0.15); 
+      padding: 15px; 
+      border-radius: 12px; 
+      text-align: center;
+      font-weight: bold;
+    }
+    
+    .matches-grid { 
+      display: grid; 
+      grid-template-columns: repeat(auto-fill, minmax(420px, 1fr)); 
+      gap: 20px; 
+    }
+    
+    .match-card { 
+      background: rgba(255,255,255,0.1); 
+      border-radius: 15px; 
+      padding: 25px; 
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255,255,255,0.2);
+      transition: transform 0.3s;
+    }
+    .match-card:hover { transform: translateY(-5px); }
+    
+    .match-header { 
+      display: flex; 
+      justify-content: space-between; 
+      align-items: center; 
+      margin-bottom: 18px;
+    }
+    .league { font-weight: bold; font-size: 1.1em; }
+    .status { 
+      padding: 8px 15px; 
+      border-radius: 20px; 
+      font-size: 0.9em; 
+      font-weight: bold;
+    }
+    .status.live-pred, .status.LIVE { background: #ff4757; color: white; }
+    .status.1H, .status.2H, .status.HT, .status.ET { background: #ffa502; color: white; }
+    .status.scheduled, .status.SCHEDULED { background: rgba(0,212,170,0.6); }
+    
+    .score-time { 
+      text-align: center; 
+      font-size: 2.5em; 
+      font-weight: bold; 
+      margin: 20px 0;
+      color: #00d4aa;
+    }
+    
+    .stats-row {
+      display: flex;
+      gap: 20px;
+      justify-content: space-around;
+      margin: 20px 0;
+      font-weight: bold;
+      flex-wrap: wrap;
+    }
+    
+    .markets { 
+      display: grid; 
+      grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); 
+      gap: 12px; 
+      margin-top: 20px;
+    }
+    .market { 
+      text-align: center; 
+      padding: 12px 8px; 
+      border-radius: 12px; 
+      font-weight: bold;
+      font-size: 0.9em;
+    }
+    .market.hot { background: rgba(255,71,87,0.6); border: 2px solid #ff4757; }
+    .market.warm { background: rgba(255,165,2,0.6); border: 2px solid #ffa502; }
+    .market.cold { background: rgba(0,212,170,0.4); }
+    
+    .confidence { 
+      margin-top: 20px; 
+      padding: 15px; 
+      border-radius: 12px; 
+      text-align: center; 
+      font-size: 1.2em; 
+      font-weight: bold;
+    }
+    .confidence.high { background: linear-gradient(45deg, #00d4aa, #00b894); }
+    .confidence.medium { background: linear-gradient(45deg, #ffa502, #ff6348); }
+    .confidence.low { background: rgba(255,255,255,0.2); }
+    
+    .no-data { 
+      text-align: center; 
+      padding: 60px 20px; 
+      font-size: 1.3em; 
+      opacity: 0.8;
+      grid-column: 1 / -1;
+    }
+    .loading { 
+      text-align: center; 
+      padding: 40px; 
+      font-size: 1.2em; 
+    }
+    
+    .bet-signal {
+      margin-top: 15px;
+      padding: 12px;
+      border-radius: 10px;
+      font-weight: bold;
+      text-align: center;
+      font-size: 1em;
+    }
+    .bet-signal.hot { background: rgba(255,71,87,0.3); border: 2px solid #ff4757; }
+    .bet-signal.safe { background: rgba(0,212,170,0.3); border: 2px solid #00d4aa; }
+    
+    @media (max-width: 768px) {
+      .matches-grid { grid-template-columns: 1fr; }
+      .tab-buttons { flex-direction: column; align-items: center; }
+      .tab-btn { min-width: 250px; }
+      .score-time { font-size: 2em; }
+      .stats-row { flex-direction: column; gap: 10px; text-align: center; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>⚽ LIVE Football Predictor Pro v2.0</h1>
+      <p>Real-time Over/Under + BTTS | Auto-refresh every 90s</p>
+      
+      <div class="tab-buttons">
+        <button class="tab-btn today active" onclick="loadToday()">📅 Today Matches</button>
+        <button class="tab-btn tomorrow" onclick="loadTomorrow()">📅 Tomorrow</button>
+        <button class="tab-btn live" onclick="loadLivePredictions()">🔴 LIVE Predictions</button>
+        <button class="tab-btn live" onclick="loadRefresh()" style="background: #9c27b0;">🔄 Refresh Now</button>
+      </div>
+      
+      <div class="stats-grid" id="statsGrid">
+        <div class="stat-card"><div id="totalMatches">0</div><div>Total</div></div>
+        <div class="stat-card"><div id="liveMatches">0</div><div>LIVE</div></div>
+        <div class="stat-card"><div id="predictions">0</div><div>Predictions</div></div>
+        <div class="stat-card"><div id="highConf">0</div><div>80%+</div></div>
+      </div>
+    </div>
+    
+    <div id="matchesContainer" class="matches-grid">
+      <div class="no-data">Click tab to load matches... 🚀</div>
+    </div>
+  </div>
+
+  <script>
+    let currentTab = 'today';
+    let allData = {};
+
+    // TAB FUNCTIONS
+    async function loadToday() {
+      setActiveTab('today');
+      showLoading();
+      try {
+        const response = await fetch('/api/matches');
+        const data = await response.json();
+        allData = data;
+        const todayMatches = data.matches.filter(m => !['LIVE','1H','2H','HT','ET'].includes(m.status));
+        renderMatches(todayMatches);
+        updateStats(data.stats);
+      } catch(e) {
+        showError('Server not running? Run: <code>node server.js</code>');
+      }
+    }
+
+    async function loadTomorrow() {
+      setActiveTab('tomorrow');
+      showLoading();
+      document.getElementById('matchesContainer').innerHTML = 
+        '<div class="no-data">📅 Tomorrow matches coming soon!<br>Add tomorrow API endpoint to server.js</div>';
+      updateStats({totalMatches: 0, liveMatches: 0, predictions: 0, highConfidence: 0});
+    }
+
+    async function loadLivePredictions() {
+      setActiveTab('live');
+      showLoading();
+      try {
+        const response = await fetch('/api/matches');
+        const data = await response.json();
+        allData = data;
+        renderPredictions(data.predictions || []);
+        updateStats(data.stats);
+      } catch(e) {
+        showError('Server not running? Run: <code>node server.js</code>');
+      }
+    }
+
+    async function loadRefresh() {
+      showLoading('🔄 Manual refresh...');
+      try {
+        const response = await fetch('/api/refresh');
+        const data = await response.json();
+        setTimeout(() => {
+          if (currentTab === 'live') loadLivePredictions();
+          else if (currentTab === 'today') loadToday();
+        }, 1000);
+      } catch(e) {
+        showError();
+      }
+    }
+
+    function setActiveTab(tab) {
+      currentTab = tab;
+      document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+      document.querySelector(`.${tab}`).classList.add('active');
+    }
+
+    function renderMatches(matches) {
+      const container = document.getElementById('matchesContainer');
+      if (!matches || matches.length === 0) {
+        container.innerHTML = '<div class="no-data">No matches scheduled today ⚽</div>';
+        return;
+      }
+      
+      container.innerHTML = matches.map(match => `
+        <div class="match-card">
+          <div class="match-header">
+            <div class="league">${match.league || 'Unknown League'}</div>
+            <div class="status scheduled">${match.status || 'NS'} ${match.time || '--:--'}</div>
+          </div>
+          <div class="score-time">${match.home_team} vs ${match.away_team}</div>
+          <div style="text-align: center; opacity: 0.8; margin: 20px 0; font-size: 1.1em;">
+            🎯 Predictions available when LIVE
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function renderPredictions(predictions) {
+      const container = document.getElementById('matchesContainer');
+      if (!predictions || predictions.length === 0) {
+        container.innerHTML = '<div class="no-data">No LIVE predictions available<br>🔴 Wait for matches to start!</div>';
+        return;
+      }
+
+      container.innerHTML = predictions.map(pred => {
+        const isBetSignal = pred.minute >= 55 && pred.over_25 >= 70 && pred.confidence >= 78 && pred.intensity >= 60;
+        const scoreCheck = ['0-0', '1-0', '0-1', '1-1'].includes(pred.score);
+        
+        return `
+        <div class="match-card">
+          <div class="match-header">
+            <div class="league">${pred.league || 'Unknown'}</div>
+            <div class="status live-pred">${pred.status || 'LIVE'} ${pred.minute || 0}'</div>
+          </div>
+          
+          <div class="score-time">${pred.score || '0-0'}</div>
+          
+          <div class="stats-row">
+            <div>🔥 Intensity: ${pred.intensity || 0}</div>
+            <div>⚡ xG: ${pred.xg_proxy || 0.0}</div>
+            <div>📊 LF: ${pred.league_factor || 0}</div>
+            ${pred.draw_pressure > 0 ? `<div>🎯 Draw: +${pred.draw_pressure}%</div>` : ''}
+          </div>
+          
+          <div class="markets">
+            <div class="market ${getMarketClass(pred.over_05)}">O0.5<br>${Math.round(pred.over_05 || 0)}%</div>
+            <div class="market ${getMarketClass(pred.over_15)}">O1.5<br>${Math.round(pred.over_15 || 0)}%</div>
+            <div class="market ${getMarketClass(pred.over_25)}">O2.5<br>${Math.round(pred.over_25 || 0)}%</div>
+            <div class="market ${getMarketClass(pred.over_35)}">O3.5<br>${Math.round(pred.over_35 || 0)}%</div>
+            <div class="market ${getMarketClass(pred.btts)}">BTTS<br>${Math.round(pred.btts || 0)}%</div>
+            <div class="market ${getMarketClass(pred.next_goal)}">Next Goal<br>${Math.round(pred.next_goal || 0)}%</div>
+          </div>
+          
+          ${isBetSignal && scoreCheck ? 
+            `<div class="bet-signal hot">🎯 LIVE BET SIGNAL<br>✅ O2.5 Entry Ready</div>` : 
+            `<div class="bet-signal safe">⏳ Wait for signal<br>Min 55' + 70% O2.5</div>`
+          }
+          
+          <div class="confidence ${getConfidenceClass(pred.confidence)}">
+            🎯 Confidence: ${Math.round(pred.confidence || 0)}%
+          </div>
+        </div>`;
+      }).join('');
+    }
+
+    function getMarketClass(percent) {
+      const p = percent || 0;
+      if (p >= 80) return 'hot';
+      if (p >= 65) return 'warm';
+      return 'cold';
+    }
+
+    function getConfidenceClass(conf) {
+      const c = conf || 0;
+      if (c >= 80) return 'high';
+      if (c >= 70) return 'medium';
+      return 'low';
+    }
+
+    function updateStats(stats) {
+      document.getElementById('totalMatches').textContent = stats?.totalMatches || 0;
+      document.getElementById('liveMatches').textContent = stats?.liveMatches || 0;
+      document.getElementById('predictions').textContent = stats?.predictions || 0;
+      document.getElementById('highConf').textContent = stats?.highConfidence || 0;
+    }
+
+    function showLoading(msg = 'Loading matches...') {
+      document.getElementById('matchesContainer').innerHTML = 
+        `<div class="loading">🔄 ${msg}</div>`;
+    }
+
+    function showError(msg = 'Server Error') {
+      document.getElementById('matchesContainer').innerHTML = 
+        `<div class="no-data" style="color: #ff6b6b;">❌ ${msg}</div>`;
+    }
+
+    // AUTO-LOAD + REFRESH
+    loadToday();
+    setInterval(() => {
+      if (currentTab === 'live') loadLivePredictions();
+      else if (currentTab === 'today') loadToday();
+    }, 90000); // Match server refresh
+  </script>
+</body>
+</html>
