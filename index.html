@@ -1,66 +1,61 @@
-
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Next 6 Days Football Schedule + LIVE</title>
+<title>Next 6 Days Football Schedule</title>
 <style>
-body{font-family:Arial,sans-serif;margin:20px;}
-h1{margin-bottom:20px;}
-h2{margin-top:30px;}
-table{border-collapse:collapse;width:100%;margin-bottom:20px;}
-th,td{border:1px solid #ccc;padding:8px;text-align:left;}
-th{background:#f2f2f2;}
-.live{background:#d4edda;}
+  body { font-family: Arial, sans-serif; padding: 20px; }
+  table { border-collapse: collapse; width: 100%; margin-top: 20px; }
+  th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
+  th { background-color: #f4f4f4; }
 </style>
 </head>
 <body>
-<h1>Football Schedule (Next 6 Days)</h1>
-<div id="schedule"></div>
+<h1>Next 6 Days Football Schedule</h1>
+<table id="matchesTable">
+  <thead>
+    <tr>
+      <th>Date/Time (PKT)</th>
+      <th>League</th>
+      <th>Home Team</th>
+      <th>Away Team</th>
+      <th>Status</th>
+      <th>Score</th>
+    </tr>
+  </thead>
+  <tbody></tbody>
+</table>
 
 <script>
-async function loadSchedule(){
-  const res=await fetch('/api/matches');
-  const data=await res.json();
-  const container=document.getElementById('schedule');
-  container.innerHTML='';
+async function fetchMatches() {
+  try {
+    const res = await fetch('/api/matches');
+    const data = await res.json();
+    const tbody = document.querySelector('#matchesTable tbody');
+    tbody.innerHTML = '';
 
-  const predMap={};
-  data.predictions.forEach(p=>{predMap[p.match_id]=p;});
-
-  const dates=Object.keys(data.matches_by_date).sort();
-  dates.forEach(date=>{
-    const matches=data.matches_by_date[date];
-    const h2=document.createElement('h2');
-    h2.textContent=date;
-    container.appendChild(h2);
-
-    const table=document.createElement('table');
-    const header=document.createElement('tr');
-    header.innerHTML="<th>Home Team</th><th>Away Team</th><th>Status</th><th>Time</th><th>LIVE Prediction</th>";
-    table.appendChild(header);
-
-    matches.forEach(m=>{
-      const pred=predMap[m.match_id];
-      const row=document.createElement('tr');
-      if(m.status!=='NS') row.classList.add('live');
-      row.innerHTML=`
-        <td>${m.home_team}</td>
-        <td>${m.away_team}</td>
-        <td>${m.status}</td>
-        <td>${m.time}</td>
-        <td>${pred?`Over 2.5: ${pred.over_25}% | BTTS: ${pred.btts}%`:'-'}</td>
+    data.matches.forEach(match => {
+      const row = document.createElement('tr');
+      row.innerHTML = `
+        <td>${match.time}</td>
+        <td>${match.league}</td>
+        <td>${match.home_team}</td>
+        <td>${match.away_team}</td>
+        <td>${match.status}</td>
+        <td>${match.score || '-'}</td>
       `;
-      table.appendChild(row);
+      tbody.appendChild(row);
     });
-
-    container.appendChild(table);
-  });
+  } catch (err) {
+    console.error('Error fetching matches:', err);
+  }
 }
 
-loadSchedule();
-setInterval(loadSchedule,90000);
+// Initial fetch
+fetchMatches();
+
+// Auto-refresh every 90 seconds
+setInterval(fetchMatches, 90000);
 </script>
 </body>
 </html>
